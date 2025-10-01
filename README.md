@@ -9,9 +9,9 @@
 Flutter wrapper for Klaviyo [Android](https://github.com/klaviyo/klaviyo-android-sdk),
 and [iOS](https://github.com/klaviyo/klaviyo-swift-sdk) projects.
 
-- Uses Klaviyo Android SDK Version `3.0.3`.
+- Uses Klaviyo Android SDK Version `3.3.1`.
 - The minimum Android SDK `minSdkVersion` required is 23.
-- Uses Klaviyo iOS SDK Version `4.0.0`.
+- Uses Klaviyo iOS SDK Version `4.2.1`.
 - The minimum iOS target version required is 13.
 
 ## Usage
@@ -64,9 +64,9 @@ Permissions:
 
 Optional permissions:
 ```xml
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" /><uses-permission
-android:name="android.permission.VIBRATE" /><uses-permission
-android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.VIBRATE" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
 Enable AndroidX + Jetifier support in your android/gradle.properties file (see example app):
@@ -164,7 +164,7 @@ The following code example allows you to track when a user opens a push notifica
 
     Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         await Firebase.initializeApp();
-        await Klaviyo.instance.handleBackgroundMessage(message);
+        await Klaviyo.instance.handlePush(message.data);
     }
 ```
 

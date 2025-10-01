@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+* Add individual set profile attributes methods, thanks @Lo4D
+* Critical Fix: Resolve Klaviyo All Events Failure for Arabic Language, thanks @Musharaf13
+* Add `setBadgeCount()` to iOS and update `KlaviyoSwift` dependency, thanks @Lo4D 
+* Add individual set profile attributes methods
+* Updated Android SDK to 3.3.1, Updated iOS SDK to 4.2.1
+
 ## 0.1.4
 
 * Update project to support Android SDK 35 and tooling, thanks @sn1cka
