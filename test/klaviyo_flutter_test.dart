@@ -35,8 +35,8 @@ void main() {
           address1: 'Some street 1',
           address2: 'Some steet 2',
           region: 'Tallinn',
-          latitude: '59.436962',
-          longitude: '24.753574',
+          latitude: 59.436962,
+          longitude: 24.753574,
           properties: {
             'app_version': 321,
           },
@@ -56,8 +56,8 @@ void main() {
           'address1': 'Some street 1',
           'address2': 'Some steet 2',
           'region': 'Tallinn',
-          'latitude': '59.436962',
-          'longitude': '24.753574',
+          'latitude': 59.436962,
+          'longitude': 24.753574,
           'properties': {
             'app_version': 321,
           }

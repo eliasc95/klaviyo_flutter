@@ -12,8 +12,8 @@ class KlaviyoProfile extends Equatable {
   final String? address1;
   final String? address2;
   final String? region;
-  final String? latitude;
-  final String? longitude;
+  final double? latitude;
+  final double? longitude;
   final Map<String, dynamic>? properties;
 
   const KlaviyoProfile({

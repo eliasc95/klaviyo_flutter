@@ -113,6 +113,29 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
             result("\(name) updated")
         }
 
+        func setNumericProfileAttribute(
+            call: FlutterMethodCall,
+            key: Profile.ProfileKey,
+            name: String,
+            argumentKey: String,
+            result: FlutterResult
+        ) {
+            guard
+                let arguments = call.arguments as? [String: Any],
+                let numericValue = extractDouble(arguments[argumentKey])
+            else {
+                return result(
+                    FlutterError(
+                        code: "invalid_args",
+                        message: "\(name) must be a numeric value",
+                        details: nil
+                    )
+                )
+            }
+            klaviyo.set(profileAttribute: key, value: numericValue)
+            result("\(name) updated")
+        }
+
         switch call.method {
         case METHOD_INITIALIZE:
             guard
@@ -179,8 +202,8 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
             // parsing location
             let address1 = arguments["address1"] as? String
             let address2 = arguments["address2"] as? String
-            let latitude = (arguments["latitude"] as? String)?.toDouble
-            let longitude = (arguments["longitude"] as? String)?.toDouble
+            let latitude = extractDouble(arguments["latitude"])
+            let longitude = extractDouble(arguments["longitude"])
             let region = arguments["region"] as? String
 
             var location: Profile.Location?
@@ -383,17 +406,21 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
             )
 
         case METHOD_SET_LATITUDE:
-            setProfileAttribute(
+            setNumericProfileAttribute(
+                call: call,
                 key: .latitude,
                 name: "Latitude",
-                argumentKey: "latitude"
+                argumentKey: "latitude",
+                result: result
             )
 
         case METHOD_SET_LONGITUDE:
-            setProfileAttribute(
+            setNumericProfileAttribute(
+                call: call,
                 key: .longitude,
                 name: "Longitude",
-                argumentKey: "longitude"
+                argumentKey: "longitude",
+                result: result
             )
 
         case METHOD_SET_REGION:
@@ -433,12 +460,6 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
     }
 }
 
-extension String {
-    var toDouble: Double {
-        return Double(self) ?? 0.0
-    }
-}
-
 extension Data {
     init(hexString: String) {
         self =
@@ -459,4 +480,17 @@ extension Data {
                 }
             }.data
     }
+}
+
+private func extractDouble(_ rawValue: Any?) -> Double? {
+    if let value = rawValue as? Double {
+        return value
+    }
+    if let numberValue = rawValue as? NSNumber {
+        return numberValue.doubleValue
+    }
+    if let stringValue = rawValue as? String {
+        return Double(stringValue)
+    }
+    return nil
 }

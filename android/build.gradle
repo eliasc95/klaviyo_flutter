@@ -1,5 +1,29 @@
+import java.util.Properties
+
 group 'com.rightbite.denisr'
 version '0.1.0'
+
+def loadFlutterSdkPath() {
+    Properties properties = new Properties()
+    File localPropertiesFile = rootProject.file('local.properties')
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.withReader('UTF-8') { reader ->
+            properties.load(reader)
+        }
+    }
+
+    def flutterSdk = System.getenv('FLUTTER_ROOT') ?: properties.getProperty('flutter.sdk')
+    if (flutterSdk == null) {
+        throw new GradleException('Flutter SDK not found. Define FLUTTER_ROOT or flutter.sdk in local.properties.')
+    }
+    return flutterSdk
+}
+
+def flutterRoot = loadFlutterSdkPath()
+def flutterJar = file("$flutterRoot/bin/cache/artifacts/engine/android-arm64/flutter.jar")
+if (!flutterJar.exists()) {
+    throw new GradleException("Flutter engine jar not found at ${flutterJar.path}. Run 'flutter precache' to download artifacts.")
+}
 
 buildscript {
     ext.kotlin_version = '2.0.20'
@@ -58,4 +82,8 @@ dependencies {
     implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:3.3.1"
     implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:3.3.1"
     implementation "com.google.firebase:firebase-messaging-ktx:23.4.1"
+    compileOnly files(flutterJar)
+    testImplementation files(flutterJar)
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation "io.mockk:mockk:1.13.11"
 }
