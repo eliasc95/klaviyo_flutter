@@ -202,23 +202,37 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
             // parsing location
             let address1 = arguments["address1"] as? String
             let address2 = arguments["address2"] as? String
+            let city = arguments["city"] as? String
+            let country = arguments["country"] as? String
+            let region = arguments["region"] as? String
+            let zip = arguments["zip"] as? String
+            let timezone = arguments["timezone"] as? String
             let latitude = extractDouble(arguments["latitude"])
             let longitude = extractDouble(arguments["longitude"])
-            let region = arguments["region"] as? String
 
-            var location: Profile.Location?
+            let hasLocationData = [
+                address1,
+                address2,
+                city,
+                country,
+                region,
+                zip,
+                timezone,
+            ].contains { value in value != nil } || latitude != nil || longitude != nil
 
-            if address1 != nil && address2 != nil && latitude != nil
-                && longitude != nil && region != nil
-            {
-                location = Profile.Location(
+            let location = hasLocationData
+                ? Profile.Location(
                     address1: address1,
                     address2: address2,
+                    city: city,
+                    country: country,
                     latitude: latitude,
                     longitude: longitude,
-                    region: region
+                    region: region,
+                    zip: zip,
+                    timezone: timezone
                 )
-            }
+                : nil
 
             let profile = Profile(
                 email: arguments["email"] as? String,

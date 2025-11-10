@@ -55,6 +55,31 @@ Klaviyo [Android](https://help.klaviyo.com/hc/en-us/articles/14750928993307)
 and [iOS](https://help.klaviyo.com/hc/en-us/articles/360023213971) package
 documentation for more information.
 
+### Updating profiles
+
+Use `KlaviyoProfile` for bulk updates so you can send identifiers, standard
+location fields, and custom properties in a single call. All fields are optional
+and latitude/longitude are represented as doubles.
+
+```dart
+await Klaviyo.instance.updateProfile(
+  KlaviyoProfile(
+    id: 'customer-42',
+    email: 'hey@example.com',
+    phoneNumber: '+15555551212',
+    city: 'Berlin',
+    country: 'Germany',
+    zip: '10117',
+    timezone: 'Europe/Berlin',
+    latitude: 52.520008,
+    longitude: 13.404954,
+    properties: {
+      'app_version': '2.0.5',
+    },
+  ),
+);
+```
+
 ### Android
 
 Permissions:

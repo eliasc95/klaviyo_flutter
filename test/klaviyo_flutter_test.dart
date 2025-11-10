@@ -34,7 +34,11 @@ void main() {
           image: 'http://someurl.com/image.png',
           address1: 'Some street 1',
           address2: 'Some steet 2',
+          city: 'Tallinn',
+          country: 'Estonia',
           region: 'Tallinn',
+          zip: '10111',
+          timezone: 'Europe/Tallinn',
           latitude: 59.436962,
           longitude: 24.753574,
           properties: {
@@ -55,7 +59,11 @@ void main() {
           'image': 'http://someurl.com/image.png',
           'address1': 'Some street 1',
           'address2': 'Some steet 2',
+          'city': 'Tallinn',
+          'country': 'Estonia',
           'region': 'Tallinn',
+          'zip': '10111',
+          'timezone': 'Europe/Tallinn',
           'latitude': 59.436962,
           'longitude': 24.753574,
           'properties': {
