@@ -47,7 +47,8 @@ private const val METHOD_SET_BADGE_COUNT = "setBadgeCount"
 
 private const val PROFILE_PROPERTIES_KEY = "properties"
 
-private val PROFILE_KEY_CLASS_SUFFIX = mapOf(
+private val PROFILE_KEY_CLASS_SUFFIX =
+    mapOf(
         "external_id" to "EXTERNAL_ID",
         "email" to "EMAIL",
         "phone_number" to "PHONE_NUMBER",
@@ -65,13 +66,15 @@ private val PROFILE_KEY_CLASS_SUFFIX = mapOf(
         "timezone" to "TIMEZONE",
         "latitude" to "LATITUDE",
         "longitude" to "LONGITUDE",
-)
+    )
 
 private val profileKeyCache = mutableMapOf<String, ProfileKey?>()
 
 private const val TAG = "KlaviyoFlutterPlugin"
 
-class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
+class KlaviyoFlutterPlugin :
+    MethodCallHandler,
+    FlutterPlugin {
     private var applicationContext: Context? = null
     private lateinit var channel: MethodChannel
 
@@ -86,13 +89,19 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
         channel.setMethodCallHandler(null)
     }
 
-
-
-    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        fun setProfileAttribute(key: ProfileKey, name: String, argumentKey: String) {
+    override fun onMethodCall(
+        call: MethodCall,
+        result: MethodChannel.Result,
+    ) {
+        fun setProfileAttribute(
+            key: ProfileKey,
+            name: String,
+            argumentKey: String,
+        ) {
             try {
-                val value: String = call.argument<String>(argumentKey)
-                    ?: return result.error("Bad Request", "$name should not be null", null)
+                val value: String =
+                    call.argument<String>(argumentKey)
+                        ?: return result.error("Bad Request", "$name should not be null", null)
                 Klaviyo.setProfileAttribute(
                     propertyKey = key,
                     value = value,
@@ -102,7 +111,6 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
             } catch (e: Exception) {
                 return result.error("Set profile attribute error", e.message, e)
             }
-
         }
 
         when (call.method) {
@@ -124,8 +132,9 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
 
             METHOD_UPDATE_PROFILE -> {
                 try {
-                    val profilePropertiesRaw = call.arguments<Map<String, Any>?>()
-                        ?: throw RuntimeException("Profile properties not exist")
+                    val profilePropertiesRaw =
+                        call.arguments<Map<String, Any>?>()
+                            ?: throw RuntimeException("Profile properties not exist")
 
                     val serializedProperties = convertMapToSeralizedMap(profilePropertiesRaw)
                     val profileAttributes = buildProfileAttributes(serializedProperties)
@@ -142,8 +151,9 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
             }
 
             METHOD_LOG_EVENT -> {
-                val eventName = call.argument<String>("name")
-                    ?: return result.error("Bad Request", "Event name should not be null", null)
+                val eventName =
+                    call.argument<String>("name")
+                        ?: return result.error("Bad Request", "Event name should not be null", null)
                 val metaDataRaw = call.argument<Map<String, Any>?>("metaData")
 
                 val event = Event(EventMetric.CUSTOM(eventName))
@@ -164,12 +174,16 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
 
             METHOD_HANDLE_PUSH -> {
                 val metaData =
-                        call.argument<HashMap<String, String>>("message") ?: emptyMap<String, String>()
+                    call.argument<HashMap<String, String>>("message") ?: emptyMap<String, String>()
 
                 if (isKlaviyoPush(metaData)) {
-                    val event = Event(EventMetric.CUSTOM("\$opened_push"), metaData.mapKeys {
-                        EventKey.CUSTOM(it.key)
-                    })
+                    val event =
+                        Event(
+                            EventMetric.CUSTOM("\$opened_push"),
+                            metaData.mapKeys {
+                                EventKey.CUSTOM(it.key)
+                            },
+                        )
                     return try {
                         Klaviyo.getPushToken()?.let { event[EventKey.CUSTOM("push_token")] = it }
 
@@ -185,8 +199,9 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
             }
 
             METHOD_SET_EXTERNAL_ID -> {
-                val id: String = call.argument<String>("id")
-                    ?: return result.error("Bad Request", "ID should not be null", null)
+                val id: String =
+                    call.argument<String>("id")
+                        ?: return result.error("Bad Request", "ID should not be null", null)
                 Klaviyo.setExternalId(id)
                 return result.success(null)
             }
@@ -252,7 +267,8 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
             }
 
             METHOD_SET_LATITUDE -> {
-                val latitude: Double = call.argument<Double>("latitude")
+                val latitude: Double =
+                    call.argument<Double>("latitude")
                         ?: return result.error("Bad Request", "Latitude should not be null", null)
                 Klaviyo.setProfileAttribute(ProfileKey.LATITUDE, latitude)
                 logInfo("Latitude updated")
@@ -260,7 +276,8 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
             }
 
             METHOD_SET_LONGITUDE -> {
-                val longitude: Double = call.argument<Double>("longitude")
+                val longitude: Double =
+                    call.argument<Double>("longitude")
                         ?: return result.error("Bad Request", "Longitude should not be null", null)
                 Klaviyo.setProfileAttribute(ProfileKey.LONGITUDE, longitude)
                 logInfo("Longitude updated")
@@ -280,21 +297,23 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
             }
 
             METHOD_SET_CUSTOM_ATTRIBUTE -> {
-                val key: String = call.argument<String>("key")
-                    ?: return result.error("Bad Request", "Key must not be null", null)
-                val value: String = call.argument<String>("value")
-                    ?: return result.error("Bad Request", "Value must not be null", null)
+                val key: String =
+                    call.argument<String>("key")
+                        ?: return result.error("Bad Request", "Key must not be null", null)
+                val value: String =
+                    call.argument<String>("value")
+                        ?: return result.error("Bad Request", "Value must not be null", null)
                 Klaviyo.setProfileAttribute(propertyKey = ProfileKey.CUSTOM(key), value)
                 return result.success("Attribute '$key' updated")
             }
 
             METHOD_SET_BADGE_COUNT -> {
-                val count: Int = call.argument<Int>("count")
+                val count: Int =
+                    call.argument<Int>("count")
                         ?: return result.error("Bad Request", "count must not be null", null)
                 logInfo("setBadgeCount($count) is not supported on Android; ignoring")
                 return result.success(null)
             }
-
 
             else -> result.notImplemented()
         }
@@ -306,7 +325,10 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
 
     private fun logInfo(message: String) = runCatching { Log.i(TAG, message) }
 
-    private fun logError(message: String, throwable: Throwable? = null) = runCatching {
+    private fun logError(
+        message: String,
+        throwable: Throwable? = null,
+    ) = runCatching {
         if (throwable != null) {
             Log.e(TAG, message, throwable)
         } else {
@@ -350,8 +372,8 @@ internal fun buildProfileAttributes(profileProperties: Map<String, Serializable>
 }
 
 @VisibleForTesting
-internal fun resolveStandardProfileKey(rawKey: String): ProfileKey? {
-    return profileKeyCache.getOrPut(rawKey) {
+internal fun resolveStandardProfileKey(rawKey: String): ProfileKey? =
+    profileKeyCache.getOrPut(rawKey) {
         PROFILE_KEY_CLASS_SUFFIX[rawKey]?.let { suffix ->
             runCatching {
                 val className = "com.klaviyo.analytics.model.ProfileKey$$suffix"
@@ -361,7 +383,6 @@ internal fun resolveStandardProfileKey(rawKey: String): ProfileKey? {
             }.getOrNull()
         }
     }
-}
 
 private fun convertMapToSeralizedMap(map: Map<String, Any?>): Map<String, Serializable> {
     val convertedMap = mutableMapOf<String, Serializable>()

@@ -2,10 +2,11 @@ import Flutter
 import KlaviyoSwift
 import UIKit
 
+// swiftlint:disable identifier_name type_body_length file_length
+
 /// A class that receives and handles calls from Flutter to complete the payment.
 public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
-    UNUserNotificationCenterDelegate
-{
+    UNUserNotificationCenterDelegate {
     private static let methodChannelName = "com.rightbite.denisr/klaviyo"
 
     private let METHOD_UPDATE_PROFILE = "updateProfile"
@@ -88,6 +89,7 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
         completionHandler(options)
     }
 
+    // swiftlint:disable function_body_length cyclomatic_complexity
     public func handle(
         _ call: FlutterMethodCall,
         result: @escaping FlutterResult
@@ -217,7 +219,7 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
                 country,
                 region,
                 zip,
-                timezone,
+                timezone
             ].contains { value in value != nil } || latitude != nil || longitude != nil
 
             let location = hasLocationData
@@ -284,8 +286,7 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
             }
 
             if let properties = arguments["message"] as? [String: Any],
-                properties["_k"] != nil
-            {
+                properties["_k"] != nil {
                 klaviyo.create(
                     event: Event(
                         name: .customEvent("$opened_push"),
@@ -472,6 +473,7 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
             result(FlutterMethodNotImplemented)
         }
     }
+    // swiftlint:enable function_body_length cyclomatic_complexity
 }
 
 extension Data {
@@ -486,8 +488,8 @@ extension Data {
                     byte: nil as UInt8?
                 )
             ) { partialResult, nibble in
-                if let p = partialResult.byte {
-                    partialResult.data.append(p + nibble)
+                if let pendingNibble = partialResult.byte {
+                    partialResult.data.append(pendingNibble + nibble)
                     partialResult.byte = nil
                 } else {
                     partialResult.byte = nibble << 4
@@ -495,6 +497,8 @@ extension Data {
             }.data
     }
 }
+
+// swiftlint:enable identifier_name type_body_length
 
 private func extractDouble(_ rawValue: Any?) -> Double? {
     if let value = rawValue as? Double {
