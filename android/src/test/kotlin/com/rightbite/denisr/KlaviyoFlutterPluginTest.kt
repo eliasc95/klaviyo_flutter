@@ -24,6 +24,19 @@ class KlaviyoFlutterPluginTest {
         mockkObject(Klaviyo)
     }
 
+    @Test
+    fun `setBadgeCount returns success`() {
+        val plugin = KlaviyoFlutterPlugin()
+        val result = TestResult()
+
+        plugin.onMethodCall(
+            MethodCall("setBadgeCount", mapOf("count" to 5)),
+            result
+        )
+
+        assertEquals(null, result.successValue)
+    }
+
     @After
     fun tearDown() {
         clearAllMocks()

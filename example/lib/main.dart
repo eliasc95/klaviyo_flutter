@@ -213,7 +213,8 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                 ),
                 TextField(
                   controller: _phoneController,
-                  decoration: const InputDecoration(labelText: 'Phone (+E.164)'),
+                  decoration:
+                      const InputDecoration(labelText: 'Phone (+E.164)'),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -221,8 +222,9 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                   runSpacing: 8,
                   children: [
                     ElevatedButton(
-                      onPressed:
-                          _isRunning || !_isInitialized ? null : _identifyProfileBulk,
+                      onPressed: _isRunning || !_isInitialized
+                          ? null
+                          : _identifyProfileBulk,
                       child: const Text('Bulk update (KlaviyoProfile)'),
                     ),
                     OutlinedButton(
@@ -232,8 +234,9 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
                       child: const Text('Individual setters'),
                     ),
                     OutlinedButton(
-                      onPressed:
-                          _isRunning || !_isInitialized ? null : _fetchIdentifiers,
+                      onPressed: _isRunning || !_isInitialized
+                          ? null
+                          : _fetchIdentifiers,
                       child: const Text('Fetch identifiers'),
                     ),
                   ],

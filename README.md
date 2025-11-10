@@ -113,84 +113,80 @@ Make sure that you have a `NSPhotoLibraryUsageDescription` entry in your `Info.p
 
 ### Push notifications setup
 
-This plugin works in combination with
-the [`firebase_messaging`](https://pub.dev/packages/firebase_messaging) plugin to receive Push
-Notifications.
+This plugin works alongside [`firebase_messaging`](https://pub.dev/packages/firebase_messaging)
+to receive push notifications. Configure Firebase and each platform as follows.
 
-### Prerequisites:
+#### Firebase prerequisites
 
-- Firebase account
-- Familiarity with [Firebase](https://firebase.google.com/docs/cloud-messaging/android/client)
-  documentation.
+- Create (or open) a Firebase project and add your Android/iOS apps.
+- Download `google-services.json` and `GoogleService-Info.plist`.
+- Enable Firebase Cloud Messaging and copy the server key. Add that key to the
+  Klaviyo dashboard (**Account > Settings > Push**) so Klaviyo can deliver
+  messages via FCM.
 
-### KlaviyoPushService
+#### Android configuration
 
-[//]: # (TODO Document firebase setup, google services JSON etc)
-The Klaviyo Push SDK for Android works as a wrapper around `FirebaseMessagingService` so the
-setup process is very similar to the Firebase client documentation linked above.
-You should follow all other setup recommendations from the FCM documentation.
-Register KlaviyoPushService to receive MESSAGING_EVENT intents. 
-This allows Klaviyo's Push SDK to receive new and updated push tokens via the onNewToken method, as well as display notifications via the onMessageReceived method.
+1. Place `google-services.json` inside `android/app/` and apply the Google
+   services Gradle plugin per the Firebase docs.
+2. Register `KlaviyoPushService` so Klaviyo can receive new tokens and payloads:
 
-```xml
-<service android:name="com.klaviyo.pushFcm.KlaviyoPushService" android:exported="false">
-  <intent-filter>
-    <action android:name="com.google.firebase.MESSAGING_EVENT" />
-  </intent-filter>
-</service>
-```
+   ```xml
+   <service
+       android:name="com.klaviyo.pushFcm.KlaviyoPushService"
+       android:exported="false">
+     <intent-filter>
+       <action android:name="com.google.firebase.MESSAGING_EVENT" />
+     </intent-filter>
+   </service>
+   ```
 
-To specify a notification icon, add the following metadata to your app manifest.
-Absent this, the application's launcher icon will be used.
+3. (Optional) specify a default notification icon via
 
-```xml
-<meta-data android:name="com.klaviyo.push.default_notification_icon"
-    android:resource="{YOUR_ICON_RESOURCE}" />
-```
+   ```xml
+   <meta-data
+       android:name="com.klaviyo.push.default_notification_icon"
+       android:resource="@drawable/ic_notification" />
+   ```
+
+4. Forward the FCM token to Klaviyo:
+
+   ```dart
+   final token = await FirebaseMessaging.instance.getToken();
+   if (token != null && token.isNotEmpty) {
+     await Klaviyo.instance.sendTokenToKlaviyo(token);
+   }
+   ```
+
+#### iOS configuration
+
+1. Add `GoogleService-Info.plist` to the Runner target and enable Push
+   Notifications + Background Modes (Remote notifications) in Xcode.
+2. Register for APNs and forward the device token (converted to hex) through
+   `Klaviyo.instance.sendTokenToKlaviyo`.
+3. If you need to manipulate payloads or support rich media, add a Notification
+   Service Extension and share an App Group with the main target.
+
+#### Sending & tracking pushes
+
+When users opt in, their tokens are synced to Klaviyo and can be targeted via
+FCM/APNs. To record opens while the app is killed/backgrounded register the
+Firebase background handler:
 
 ```dart
-final firebaseMessaging = FirebaseMessaging.instance;
-final token = Platform.isIOS
-        ? await firebaseMessaging.getAPNSToken()
-        : await firebaseMessaging.getToken();
+FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-if (token != null && token.isNotEmpty) {
-  Klaviyo.instance.sendTokenToKlaviyo(token);
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  await Klaviyo.instance.handlePush(message.data);
 }
 ```
-### Sending push notifications
 
-1. Add the following code to the application delegate file in  `application:didRegisterForRemoteNotificationsWithDeviceToken`. You may need to add this code to your application delegate if you have not done so already.
+Helpful references:
 
-```swift
-    if #available(iOS 10.0, *) {
-        UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
-    }
-```
+- [How to set up push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971)
+- [How to send a push notification campaign](https://help.klaviyo.com/hc/en-us/articles/360006653972)
+- [How to add a push notification to a flow](https://help.klaviyo.com/hc/en-us/articles/12932504108571)
 
-Any users that enable/accept push notifications from your app now will be eligible to receive your custom notifications.
-
-To read more about sending push notifications, check out our additional push notification guides.
-* [How to set up push notifications](https://help.klaviyo.com/hc/en-us/articles/360023213971)
-* [How to send a push notification campaign](https://help.klaviyo.com/hc/en-us/articles/360006653972)
-* [How to add a push notification to a flow](https://help.klaviyo.com/hc/en-us/articles/12932504108571)
-
-Now, if either Firebase direct (e.g. by your own backend server) or Klaviyo sends you a message, it
-will be delivered to your app.
-
-### Tracking push notifications
-
-The following code example allows you to track when a user opens a push notification.
-
-1. Add the following code that extends your main app:
-
-```dart
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-        await Firebase.initializeApp();
-        await Klaviyo.instance.handlePush(message.data);
-    }
-```
-
-Once your first push notifications are sent and opened, you should start to see *Opened Push* metrics within your Klaviyo dashboard.
+> **Note:** `setBadgeCount` only affects iOS (where the Klaviyo SDK manages the
+> application icon badge). On Android the method is a no-op because launcher
+> badge behavior varies by device manufacturer.

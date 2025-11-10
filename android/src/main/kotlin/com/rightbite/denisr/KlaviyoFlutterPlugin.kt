@@ -43,6 +43,7 @@ private const val METHOD_SET_REGION = "setRegion"
 private const val METHOD_SET_ZIP = "setZip"
 private const val METHOD_SET_TIMEZONE = "setTimezone"
 private const val METHOD_SET_CUSTOM_ATTRIBUTE = "setCustomAttribute"
+private const val METHOD_SET_BADGE_COUNT = "setBadgeCount"
 
 private const val PROFILE_PROPERTIES_KEY = "properties"
 
@@ -285,6 +286,13 @@ class KlaviyoFlutterPlugin : MethodCallHandler, FlutterPlugin {
                     ?: return result.error("Bad Request", "Value must not be null", null)
                 Klaviyo.setProfileAttribute(propertyKey = ProfileKey.CUSTOM(key), value)
                 return result.success("Attribute '$key' updated")
+            }
+
+            METHOD_SET_BADGE_COUNT -> {
+                val count: Int = call.argument<Int>("count")
+                        ?: return result.error("Bad Request", "count must not be null", null)
+                logInfo("setBadgeCount($count) is not supported on Android; ignoring")
+                return result.success(null)
             }
 
 
