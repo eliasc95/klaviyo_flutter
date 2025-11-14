@@ -142,19 +142,15 @@ class KlaviyoFlutterPluginTest {
 
         val attributes = buildProfileAttributes(properties)
 
-        val externalIdKey = requireNotNull(resolveStandardProfileKey("external_id"))
-        val emailKey = requireNotNull(resolveStandardProfileKey("email"))
-        val latitudeKey = requireNotNull(resolveStandardProfileKey("latitude"))
-        val longitudeKey = requireNotNull(resolveStandardProfileKey("longitude"))
-
-        assertEquals("ext-123", attributes[externalIdKey])
-        assertEquals("test@example.com", attributes[emailKey])
-        assertEquals(10.5, attributes[latitudeKey])
-        assertEquals(-45.2, attributes[longitudeKey])
+        assertEquals("ext-123", attributes[ProfileKey.EXTERNAL_ID])
+        assertEquals("test@example.com", attributes[ProfileKey.EMAIL])
+        assertEquals(10.5, attributes[ProfileKey.LATITUDE])
+        assertEquals(-45.2, attributes[ProfileKey.LONGITUDE])
         assertEquals("blue", attributes[ProfileKey.CUSTOM("favorite_color")])
         assertEquals("1.0.0", attributes[ProfileKey.CUSTOM("app_version")])
         assertEquals(true, attributes[ProfileKey.CUSTOM("loyalty")])
     }
+
 }
 
 private class TestResult : MethodChannel.Result {

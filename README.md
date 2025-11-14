@@ -705,6 +705,28 @@ class _KlaviyoDemoState extends State<KlaviyoDemo> {
 | `longitude` | `double?` | Longitude coordinate |
 | `properties` | `Map<String, dynamic>?` | Custom properties |
 
+## Known Limitations
+
+### Clearing Individual Profile Fields
+
+This plugin does not support clearing individual profile fields (e.g., setting a field to `null`). This is due to the underlying Klaviyo API behavior where omitting a field leaves it unchanged, and null values are not processed.
+
+**To clear profile fields:** Use `Klaviyo.resetProfile()` to clear all profile data, then call `updateProfile()` with only the fields you want to keep:
+
+```dart
+// Clear all profile data
+await Klaviyo.instance.resetProfile();
+
+// Set only the fields you want to keep
+await Klaviyo.instance.updateProfile(
+  KlaviyoProfile(
+    email: 'user@example.com',
+    firstName: 'Jane',
+    // All other fields are now cleared
+  ),
+);
+```
+
 ## Troubleshooting
 
 ### Android Issues

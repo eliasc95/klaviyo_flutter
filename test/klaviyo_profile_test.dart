@@ -64,7 +64,7 @@ void main() {
       expect(profile.longitude, -1);
     });
 
-    test('copyWith overrides and clears values', () {
+    test('copyWith overrides values', () {
       final profile = KlaviyoProfile(
         email: 'first@example.com',
         city: 'Berlin',
@@ -73,13 +73,30 @@ void main() {
 
       final updated = profile.copyWith(
         email: 'second@example.com',
-        city: null,
         latitude: 2.5,
       );
 
       expect(updated.email, 'second@example.com');
-      expect(updated.city, isNull);
+      expect(updated.city, 'Berlin'); // unchanged
       expect(updated.latitude, 2.5);
+    });
+
+    test('copyWith with null keeps original values', () {
+      final profile = KlaviyoProfile(
+        email: 'user@example.com',
+        city: 'New York',
+        firstName: 'John',
+      );
+
+      // Passing null should NOT clear the field
+      final updated = profile.copyWith(
+        city: null,
+        firstName: 'Jane',
+      );
+
+      expect(updated.email, 'user@example.com'); // unchanged
+      expect(updated.city, 'New York'); // unchanged despite null
+      expect(updated.firstName, 'Jane'); // updated
     });
   });
 }

@@ -72,8 +72,11 @@ class KlaviyoProfile extends Equatable {
     );
   }
 
-  /// Returns a new instance with the provided overrides. Pass `null` explicitly
-  /// to clear a value.
+  /// Returns a new instance with the provided overrides.
+  ///
+  /// **Note:** This method cannot clear individual profile fields. To clear fields,
+  /// use `Klaviyo.resetProfile()` to clear all data, then call `updateProfile()`
+  /// with only the fields you want to keep.
   KlaviyoProfile copyWith({
     Object? id = _unset,
     Object? email = _unset,
@@ -117,7 +120,11 @@ class KlaviyoProfile extends Equatable {
   }
 
   static T? _resolve<T>(Object? candidate, T? fallback) {
-    return identical(candidate, _unset) ? fallback : candidate as T?;
+    // Treat both _unset and null as "keep the old value"
+    // This prevents clearing individual fields via copyWith(field: null)
+    return identical(candidate, _unset) || candidate == null
+        ? fallback
+        : candidate as T?;
   }
 
   @override
