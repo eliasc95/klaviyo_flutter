@@ -47,27 +47,30 @@ private const val METHOD_SET_BADGE_COUNT = "setBadgeCount"
 
 private const val PROFILE_PROPERTIES_KEY = "properties"
 
-// Direct mapping from string keys to ProfileKey instances (avoids reflection)
-private val PROFILE_KEY_MAP =
+// Maps standard profile keys to their Kotlin object suffix names.
+// We need reflection because the underlying ProfileKey objects are marked `internal`.
+private val PROFILE_KEY_CLASS_SUFFIX =
     mapOf(
-        "external_id" to ProfileKey.EXTERNAL_ID,
-        "email" to ProfileKey.EMAIL,
-        "phone_number" to ProfileKey.PHONE_NUMBER,
-        "first_name" to ProfileKey.FIRST_NAME,
-        "last_name" to ProfileKey.LAST_NAME,
-        "organization" to ProfileKey.ORGANIZATION,
-        "title" to ProfileKey.TITLE,
-        "image" to ProfileKey.IMAGE,
-        "address1" to ProfileKey.ADDRESS1,
-        "address2" to ProfileKey.ADDRESS2,
-        "city" to ProfileKey.CITY,
-        "country" to ProfileKey.COUNTRY,
-        "region" to ProfileKey.REGION,
-        "zip" to ProfileKey.ZIP,
-        "timezone" to ProfileKey.TIMEZONE,
-        "latitude" to ProfileKey.LATITUDE,
-        "longitude" to ProfileKey.LONGITUDE,
+        "external_id" to "EXTERNAL_ID",
+        "email" to "EMAIL",
+        "phone_number" to "PHONE_NUMBER",
+        "first_name" to "FIRST_NAME",
+        "last_name" to "LAST_NAME",
+        "organization" to "ORGANIZATION",
+        "title" to "TITLE",
+        "image" to "IMAGE",
+        "address1" to "ADDRESS1",
+        "address2" to "ADDRESS2",
+        "city" to "CITY",
+        "country" to "COUNTRY",
+        "region" to "REGION",
+        "zip" to "ZIP",
+        "timezone" to "TIMEZONE",
+        "latitude" to "LATITUDE",
+        "longitude" to "LONGITUDE",
     )
+
+private val profileKeyCache = mutableMapOf<String, ProfileKey?>()
 
 private const val TAG = "KlaviyoFlutterPlugin"
 
@@ -346,10 +349,13 @@ internal fun buildProfileAttributes(profileProperties: Map<String, Serializable>
     val processedKeys = mutableSetOf<String>()
 
     // Process standard profile keys
-    PROFILE_KEY_MAP.forEach { (rawKey, profileKey) ->
+    PROFILE_KEY_CLASS_SUFFIX.forEach { (rawKey, _) ->
         val value = profileProperties[rawKey] ?: return@forEach
-        attributes[profileKey] = value
-        processedKeys.add(rawKey)
+        val profileKey = resolveStandardProfileKey(rawKey)
+        if (profileKey != null) {
+            attributes[profileKey] = value
+            processedKeys.add(rawKey)
+        }
     }
 
     // Process nested custom properties
@@ -369,6 +375,19 @@ internal fun buildProfileAttributes(profileProperties: Map<String, Serializable>
 
     return attributes
 }
+
+@VisibleForTesting
+internal fun resolveStandardProfileKey(rawKey: String): ProfileKey? =
+    profileKeyCache.getOrPut(rawKey) {
+        PROFILE_KEY_CLASS_SUFFIX[rawKey]?.let { suffix ->
+            runCatching {
+                val className = "com.klaviyo.analytics.model.ProfileKey$$suffix"
+                val clazz = Class.forName(className)
+                val instanceField = clazz.getField("INSTANCE")
+                instanceField.get(null) as? ProfileKey
+            }.getOrNull()
+        }
+    }
 
 private fun convertMapToSeralizedMap(map: Map<String, Any?>): Map<String, Serializable> {
     val convertedMap = mutableMapOf<String, Serializable>()
