@@ -113,8 +113,8 @@ class KlaviyoProfile extends Equatable {
       region: _resolve(region, this.region),
       zip: _resolve(zip, this.zip),
       timezone: _resolve(timezone, this.timezone),
-      latitude: _resolve(latitude, this.latitude),
-      longitude: _resolve(longitude, this.longitude),
+      latitude: _resolveDouble(latitude, this.latitude, 'latitude'),
+      longitude: _resolveDouble(longitude, this.longitude, 'longitude'),
       properties: _resolve(properties, this.properties),
     );
   }
@@ -125,6 +125,24 @@ class KlaviyoProfile extends Equatable {
     return identical(candidate, _unset) || candidate == null
         ? fallback
         : candidate as T?;
+  }
+
+  static double? _resolveDouble(
+    Object? candidate,
+    double? fallback,
+    String fieldName,
+  ) {
+    if (identical(candidate, _unset) || candidate == null) {
+      return fallback;
+    }
+    if (candidate is num) {
+      return candidate.toDouble();
+    }
+    throw ArgumentError.value(
+      candidate,
+      fieldName,
+      'must be a numeric value',
+    );
   }
 
   @override

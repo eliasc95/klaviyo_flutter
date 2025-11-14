@@ -20,9 +20,17 @@ def loadFlutterSdkPath() {
 }
 
 def flutterRoot = loadFlutterSdkPath()
-def flutterJar = file("$flutterRoot/bin/cache/artifacts/engine/android-arm64/flutter.jar")
-if (!flutterJar.exists()) {
-    throw new GradleException("Flutter engine jar not found at ${flutterJar.path}. Run 'flutter precache' to download artifacts.")
+def flutterJarCandidates = [
+        "android-arm64",
+        "android-arm",
+        "android-x64",
+        "android-x86"
+].collect { abi ->
+    file("$flutterRoot/bin/cache/artifacts/engine/${abi}/flutter.jar")
+}
+def flutterJar = flutterJarCandidates.find { it.exists() }
+if (flutterJar == null) {
+    throw new GradleException("Flutter engine jar not found. Run 'flutter precache --android' to download artifacts.")
 }
 
 buildscript {

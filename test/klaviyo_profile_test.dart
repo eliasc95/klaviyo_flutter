@@ -98,5 +98,20 @@ void main() {
       expect(updated.city, 'New York'); // unchanged despite null
       expect(updated.firstName, 'Jane'); // updated
     });
+
+    test('copyWith accepts integers for latitude/longitude', () {
+      final profile = KlaviyoProfile(
+        latitude: 1.5,
+        longitude: -1.25,
+      );
+
+      final updated = profile.copyWith(
+        latitude: 3,
+        longitude: -2,
+      );
+
+      expect(updated.latitude, 3.0);
+      expect(updated.longitude, -2.0);
+    });
   });
 }
