@@ -1,3 +1,5 @@
+“This project is based on code originally developed by Denisr under the BSD 3-Clause License.”
+
 # klaviyo_flutter
 
 [![Pub](https://img.shields.io/pub/v/klaviyo_flutter.svg)](https://pub.dev/packages/klaviyo_flutter)
@@ -325,6 +327,7 @@ Map<String, dynamic> json = profile.toJson();
 2. **Enable Capabilities**
 
    In Xcode, enable:
+
    - Push Notifications
    - Background Modes > Remote notifications
 
@@ -649,61 +652,61 @@ class _KlaviyoDemoState extends State<KlaviyoDemo> {
 
 ### Klaviyo Class
 
-| Method | Parameters | Returns | Description |
-|--------|-----------|---------|-------------|
-| `initialize()` | `String apiKey` | `Future<void>` | Initialize the SDK with your public API key |
-| `logEvent()` | `String name, [Map<String, dynamic>? metaData]` | `Future<String>` | Log a custom event with optional metadata |
-| `updateProfile()` | `KlaviyoProfile profile` | `Future<String>` | Update profile with bulk attributes |
-| `setExternalId()` | `String id` | `Future<void>` | Set external identifier |
-| `getExternalId()` | - | `Future<String?>` | Get current external ID |
-| `setEmail()` | `String email` | `Future<void>` | Set email address |
-| `getEmail()` | - | `Future<String?>` | Get current email |
-| `setPhoneNumber()` | `String phoneNumber` | `Future<void>` | Set phone number |
-| `getPhoneNumber()` | - | `Future<String?>` | Get current phone number |
-| `setFirstName()` | `String firstName` | `Future<void>` | Set first name |
-| `setLastName()` | `String lastName` | `Future<void>` | Set last name |
-| `setOrganization()` | `String organization` | `Future<void>` | Set organization |
-| `setTitle()` | `String title` | `Future<void>` | Set job title |
-| `setImage()` | `String image` | `Future<void>` | Set profile image URL |
-| `setAddress1()` | `String address` | `Future<void>` | Set address line 1 |
-| `setAddress2()` | `String address` | `Future<void>` | Set address line 2 |
-| `setCity()` | `String city` | `Future<void>` | Set city |
-| `setCountry()` | `String country` | `Future<void>` | Set country |
-| `setRegion()` | `String region` | `Future<void>` | Set region/state |
-| `setZip()` | `String zip` | `Future<void>` | Set postal code |
-| `setTimezone()` | `String timezone` | `Future<void>` | Set timezone |
-| `setLatitude()` | `double latitude` | `Future<void>` | Set latitude coordinate |
-| `setLongitude()` | `double longitude` | `Future<void>` | Set longitude coordinate |
-| `setCustomAttribute()` | `String key, String value` | `Future<void>` | Set custom profile attribute |
-| `resetProfile()` | - | `Future<void>` | Clear all profile data |
-| `sendTokenToKlaviyo()` | `String token` | `Future<void>` | Register device token for push |
-| `handlePush()` | `Map<String, dynamic> message` | `Future<bool>` | Handle incoming push notification |
-| `isKlaviyoPush()` | `Map<String, dynamic> message` | `bool` | Check if push is from Klaviyo |
-| `setBadgeCount()` | `int count` | `Future<void>` | Set app badge count (iOS only) |
-| `isInitialized` | - | `bool` | Check if SDK is initialized |
+| Method                 | Parameters                                      | Returns           | Description                                 |
+| ---------------------- | ----------------------------------------------- | ----------------- | ------------------------------------------- |
+| `initialize()`         | `String apiKey`                                 | `Future<void>`    | Initialize the SDK with your public API key |
+| `logEvent()`           | `String name, [Map<String, dynamic>? metaData]` | `Future<String>`  | Log a custom event with optional metadata   |
+| `updateProfile()`      | `KlaviyoProfile profile`                        | `Future<String>`  | Update profile with bulk attributes         |
+| `setExternalId()`      | `String id`                                     | `Future<void>`    | Set external identifier                     |
+| `getExternalId()`      | -                                               | `Future<String?>` | Get current external ID                     |
+| `setEmail()`           | `String email`                                  | `Future<void>`    | Set email address                           |
+| `getEmail()`           | -                                               | `Future<String?>` | Get current email                           |
+| `setPhoneNumber()`     | `String phoneNumber`                            | `Future<void>`    | Set phone number                            |
+| `getPhoneNumber()`     | -                                               | `Future<String?>` | Get current phone number                    |
+| `setFirstName()`       | `String firstName`                              | `Future<void>`    | Set first name                              |
+| `setLastName()`        | `String lastName`                               | `Future<void>`    | Set last name                               |
+| `setOrganization()`    | `String organization`                           | `Future<void>`    | Set organization                            |
+| `setTitle()`           | `String title`                                  | `Future<void>`    | Set job title                               |
+| `setImage()`           | `String image`                                  | `Future<void>`    | Set profile image URL                       |
+| `setAddress1()`        | `String address`                                | `Future<void>`    | Set address line 1                          |
+| `setAddress2()`        | `String address`                                | `Future<void>`    | Set address line 2                          |
+| `setCity()`            | `String city`                                   | `Future<void>`    | Set city                                    |
+| `setCountry()`         | `String country`                                | `Future<void>`    | Set country                                 |
+| `setRegion()`          | `String region`                                 | `Future<void>`    | Set region/state                            |
+| `setZip()`             | `String zip`                                    | `Future<void>`    | Set postal code                             |
+| `setTimezone()`        | `String timezone`                               | `Future<void>`    | Set timezone                                |
+| `setLatitude()`        | `double latitude`                               | `Future<void>`    | Set latitude coordinate                     |
+| `setLongitude()`       | `double longitude`                              | `Future<void>`    | Set longitude coordinate                    |
+| `setCustomAttribute()` | `String key, String value`                      | `Future<void>`    | Set custom profile attribute                |
+| `resetProfile()`       | -                                               | `Future<void>`    | Clear all profile data                      |
+| `sendTokenToKlaviyo()` | `String token`                                  | `Future<void>`    | Register device token for push              |
+| `handlePush()`         | `Map<String, dynamic> message`                  | `Future<bool>`    | Handle incoming push notification           |
+| `isKlaviyoPush()`      | `Map<String, dynamic> message`                  | `bool`            | Check if push is from Klaviyo               |
+| `setBadgeCount()`      | `int count`                                     | `Future<void>`    | Set app badge count (iOS only)              |
+| `isInitialized`        | -                                               | `bool`            | Check if SDK is initialized                 |
 
 ### KlaviyoProfile Class
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | `String?` | External user identifier |
-| `email` | `String?` | Email address |
-| `phoneNumber` | `String?` | Phone number ([format guide](https://help.klaviyo.com/hc/en-us/articles/360046055671)) |
-| `firstName` | `String?` | First name |
-| `lastName` | `String?` | Last name |
-| `organization` | `String?` | Company/organization name |
-| `title` | `String?` | Job title |
-| `image` | `String?` | Profile image URL |
-| `address1` | `String?` | Address line 1 |
-| `address2` | `String?` | Address line 2 |
-| `city` | `String?` | City |
-| `country` | `String?` | Country |
-| `region` | `String?` | State/province/region |
-| `zip` | `String?` | Postal/ZIP code |
-| `timezone` | `String?` | Timezone (e.g., 'America/New_York') |
-| `latitude` | `double?` | Latitude coordinate |
-| `longitude` | `double?` | Longitude coordinate |
-| `properties` | `Map<String, dynamic>?` | Custom properties |
+| Property       | Type                    | Description                                                                            |
+| -------------- | ----------------------- | -------------------------------------------------------------------------------------- |
+| `id`           | `String?`               | External user identifier                                                               |
+| `email`        | `String?`               | Email address                                                                          |
+| `phoneNumber`  | `String?`               | Phone number ([format guide](https://help.klaviyo.com/hc/en-us/articles/360046055671)) |
+| `firstName`    | `String?`               | First name                                                                             |
+| `lastName`     | `String?`               | Last name                                                                              |
+| `organization` | `String?`               | Company/organization name                                                              |
+| `title`        | `String?`               | Job title                                                                              |
+| `image`        | `String?`               | Profile image URL                                                                      |
+| `address1`     | `String?`               | Address line 1                                                                         |
+| `address2`     | `String?`               | Address line 2                                                                         |
+| `city`         | `String?`               | City                                                                                   |
+| `country`      | `String?`               | Country                                                                                |
+| `region`       | `String?`               | State/province/region                                                                  |
+| `zip`          | `String?`               | Postal/ZIP code                                                                        |
+| `timezone`     | `String?`               | Timezone (e.g., 'America/New_York')                                                    |
+| `latitude`     | `double?`               | Latitude coordinate                                                                    |
+| `longitude`    | `double?`               | Longitude coordinate                                                                   |
+| `properties`   | `Map<String, dynamic>?` | Custom properties                                                                      |
 
 ## Known Limitations
 
@@ -734,6 +737,7 @@ await Klaviyo.instance.updateProfile(
 **Build fails with "Duplicate class" errors**
 
 Enable Jetifier in `android/gradle.properties`:
+
 ```properties
 android.enableJetifier=true
 ```
@@ -749,6 +753,7 @@ android.enableJetifier=true
 **Build fails with deployment target error**
 
 Set minimum deployment target in `ios/Runner.xcodeproj/project.pbxproj`:
+
 ```
 IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 ```
