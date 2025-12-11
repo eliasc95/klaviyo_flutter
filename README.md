@@ -20,7 +20,7 @@ A comprehensive Flutter wrapper for Klaviyo's [Android SDK](https://github.com/k
 
 - **Android**: Minimum SDK version 23+, uses Klaviyo Android SDK v3.3.1
 - **iOS**: iOS 13.0+, uses Klaviyo Swift SDK v4.2.1
-- **Dart**: SDK 2.18.0 or higher
+- **Dart**: SDK 3.2.0 or higher
 - **Flutter**: 3.0.0 or higher
 - **Firebase**: This plugin requires `firebase_messaging` for push notifications on both platforms
 

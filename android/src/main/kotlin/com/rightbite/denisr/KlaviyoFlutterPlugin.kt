@@ -88,6 +88,8 @@ class KlaviyoFlutterPlugin :
     private lateinit var channel: MethodChannel
     private var activity: Activity? = null
     private var activityBinding: ActivityPluginBinding? = null
+    private var sdkInitialized = false
+    private var pendingPushIntent: Intent? = null
 
     override fun onAttachedToEngine(binding: FlutterPluginBinding) {
         applicationContext = binding.applicationContext
@@ -141,9 +143,16 @@ class KlaviyoFlutterPlugin :
      * This is the recommended way to track push opens according to Klaviyo Android SDK docs.
      */
     private fun handlePushIntent(intent: Intent) {
+        if (!sdkInitialized) {
+            // Save for later once initialize() is called to avoid dropping cold-start opens.
+            pendingPushIntent = intent
+            logDebug("Deferring push intent until Klaviyo SDK is initialized")
+            return
+        }
         try {
             Klaviyo.handlePush(intent)
             logDebug("Passed intent to Klaviyo.handlePush()")
+            pendingPushIntent = null
         } catch (e: Exception) {
             logError("Error calling Klaviyo.handlePush(intent)", e)
         }
@@ -178,6 +187,10 @@ class KlaviyoFlutterPlugin :
                 val apiKey = call.argument<String>("apiKey")
                 Klaviyo.initialize(apiKey!!, applicationContext!!)
                 logDebug("initialized apiKey: $apiKey")
+                sdkInitialized = true
+                pendingPushIntent?.let {
+                    handlePushIntent(it)
+                }
                 result.success("Klaviyo initialized")
             }
 
