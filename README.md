@@ -21,7 +21,8 @@ A comprehensive Flutter wrapper for Klaviyo's [Android SDK](https://github.com/k
 - **Android**: Minimum SDK version 23+, uses Klaviyo Android SDK v3.3.1
 - **iOS**: iOS 13.0+, uses Klaviyo Swift SDK v4.2.1
 - **Dart**: SDK 2.18.0 or higher
-- **Flutter**: 2.0.0 or higher
+- **Flutter**: 3.0.0 or higher
+- **Firebase**: This plugin requires `firebase_messaging` for push notifications on both platforms
 
 ## Installation
 
@@ -251,12 +252,22 @@ Map<String, dynamic> json = profile.toJson();
 
 ### 5. Push Notifications
 
+#### Architecture
+
+This plugin provides a **unified push notification stream** for both iOS and Android:
+
+- **iOS**: Push events are handled natively via `UNUserNotificationCenterDelegate` and streamed to Flutter
+- **Android**: The plugin automatically bridges `firebase_messaging` streams internally, transforming `RemoteMessage` objects into `KlaviyoPushEvent`
+
+This means you only need to listen to `Klaviyo.instance.onPushEvent` - the plugin handles the platform differences for you.
+
 #### Setup Overview
 
 1. Configure Firebase Cloud Messaging for both platforms
-2. Forward device tokens to Klaviyo
-3. Handle incoming push notifications
-4. Track push opens for analytics
+2. Initialize Firebase in your app (required for both platforms)
+3. Initialize the Klaviyo push bridge
+4. Listen to unified push events (received/opened/dismissed/action)
+5. Handle deep links and analytics in your app
 
 #### Firebase Prerequisites
 
@@ -264,6 +275,14 @@ Map<String, dynamic> json = profile.toJson();
 - Download `google-services.json` (Android) and `GoogleService-Info.plist` (iOS)
 - Enable Firebase Cloud Messaging
 - Copy the FCM server key to Klaviyo Dashboard (**Account > Settings > Push**)
+- Add `firebase_core` and `firebase_messaging` to your app's dependencies:
+
+```yaml
+dependencies:
+  firebase_core: ^3.0.0
+  firebase_messaging: ^15.0.0
+  klaviyo_flutter: ^0.3.0
+```
 
 #### Android Configuration
 
@@ -280,18 +299,18 @@ Map<String, dynamic> json = profile.toJson();
    apply plugin: 'com.google.gms.google-services'
    ```
 
-2. **Register KlaviyoPushService**
+2. **Initialize Firebase in your app**
 
-   Add to `android/app/src/main/AndroidManifest.xml`:
+   The plugin relies on `firebase_messaging` for Android push handling. Initialize Firebase before using Klaviyo:
 
-   ```xml
-   <service
-       android:name="com.klaviyo.pushFcm.KlaviyoPushService"
-       android:exported="false">
-     <intent-filter>
-       <action android:name="com.google.firebase.MESSAGING_EVENT" />
-     </intent-filter>
-   </service>
+   ```dart
+   import 'package:firebase_core/firebase_core.dart';
+
+   void main() async {
+     WidgetsFlutterBinding.ensureInitialized();
+     await Firebase.initializeApp();
+     // Then initialize Klaviyo...
+   }
    ```
 
 3. **Add Permissions**
@@ -317,6 +336,8 @@ Map<String, dynamic> json = profile.toJson();
    android.useAndroidX=true
    android.enableJetifier=true
    ```
+
+> **Note**: On Android, push notifications are handled by `firebase_messaging`. The plugin automatically listens to Firebase Messaging streams and converts them to unified `KlaviyoPushEvent` objects. You do **not** need to set up your own Firebase Messaging listeners for push events - just use `Klaviyo.instance.onPushEvent`.
 
 #### iOS Configuration
 
@@ -360,42 +381,36 @@ NotificationSettings settings = await FirebaseMessaging.instance.requestPermissi
 
 if (settings.authorizationStatus == AuthorizationStatus.authorized) {
   print('User granted permission');
-
-  // Get the FCM/APNs token
-  String? token = await FirebaseMessaging.instance.getToken();
-
-  if (token != null) {
-    // Send token to Klaviyo
-    await Klaviyo.instance.sendTokenToKlaviyo(token);
-    print('Token registered with Klaviyo');
-  }
+  // Tokens are automatically registered with Klaviyo when received.
+  // You can optionally get the token manually if needed:
+  // String? token = await FirebaseMessaging.instance.getToken();
 }
 ```
 
-#### Handling Push Notifications
+#### Flutter Usage
 
 ```dart
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:klaviyo_flutter/klaviyo_flutter.dart';
 
-// Top-level function for background messages
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-
-  // Let Klaviyo handle its push notifications
-  await Klaviyo.instance.handlePush(message.data);
-
-  print('Background message handled: ${message.messageId}');
-}
-
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await Klaviyo.instance.initialize('YOUR_API_KEY');
 
-  // Register background handler
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // Initialize Firebase first (required for Android push)
+  await Firebase.initializeApp();
+
+  // Initialize Klaviyo with your public API key
+  // This also initializes the push notification bridge:
+  // - On iOS: sets up native event channel
+  // - On Android: automatically subscribes to Firebase Messaging streams
+  await Klaviyo.instance.initialize('YOUR_PUBLIC_API_KEY');
+
+  // Check if app was launched from a notification
+  final initial = await Klaviyo.instance.getInitialNotification();
+  if (initial != null) {
+    // Handle deep links or analytics from a terminated launch
+    print('Launched from notification: ${initial.title}');
+  }
 
   runApp(MyApp());
 }
@@ -409,28 +424,40 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _setupPushHandling();
+    _setupPushListeners();
   }
 
-  void _setupPushHandling() {
-    // Handle foreground messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Foreground message: ${message.notification?.title}');
-      Klaviyo.instance.handlePush(message.data);
-    });
-
-    // Handle notification taps (app opened from background)
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('Notification opened app: ${message.notification?.title}');
-      Klaviyo.instance.handlePush(message.data);
-    });
-
-    // Check for initial notification (app opened from terminated state)
-    FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
-      if (message != null) {
-        print('App opened from notification: ${message.notification?.title}');
-        Klaviyo.instance.handlePush(message.data);
+  void _setupPushListeners() {
+    // Listen to all push events
+    Klaviyo.instance.onPushEvent.listen((event) {
+      switch (event.type) {
+        case KlaviyoPushEventType.received:
+          print('Push received: ${event.title}');
+          break;
+        case KlaviyoPushEventType.opened:
+          print('Push opened: ${event.title}');
+          // Handle deep link
+          if (event.deepLink != null) {
+            // Navigate to deep link
+          }
+          break;
+        case KlaviyoPushEventType.dismissed:
+          print('Push dismissed');
+          break;
+        case KlaviyoPushEventType.actionTapped:
+          print('Action tapped: ${event.actionId}');
+          break;
       }
+    });
+
+    // Or use specific streams
+    Klaviyo.instance.onPushOpened.listen((event) {
+      print('Push opened with appState: ${event.appState}');
+    });
+
+    // Listen for token refreshes (auto-registered with Klaviyo)
+    Klaviyo.instance.onTokenRefresh.listen((tokenEvent) {
+      print('Token refreshed: ${tokenEvent.token}');
     });
   }
 
@@ -444,8 +471,9 @@ class _MyAppState extends State<MyApp> {
 #### Check if Push is from Klaviyo
 
 ```dart
-if (Klaviyo.instance.isKlaviyoPush(message.data)) {
-  await Klaviyo.instance.handlePush(message.data);
+// Check rawData for Klaviyo marker
+if (event.rawData.containsKey('_k')) {
+  // This is a Klaviyo push
 }
 ```
 
@@ -463,9 +491,11 @@ await Klaviyo.instance.setBadgeCount(0);
 
 #### Listen for Token Refreshes
 
+Tokens are automatically registered with Klaviyo when refreshed. You can also listen for token events in Flutter:
+
 ```dart
-FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-  Klaviyo.instance.sendTokenToKlaviyo(newToken);
+Klaviyo.instance.onTokenRefresh.listen((tokenEvent) {
+  print('Token refreshed and auto-registered: ${tokenEvent.token}');
 });
 ```
 
@@ -474,37 +504,43 @@ FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
 Here's a full example demonstrating all major features:
 
 ```dart
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:klaviyo_flutter/klaviyo_flutter.dart';
-
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  await Klaviyo.instance.handlePush(message.data);
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase first
   await Firebase.initializeApp();
+
+  // Initialize Klaviyo (also sets up push notification bridge)
   await Klaviyo.instance.initialize('YOUR_PUBLIC_API_KEY');
 
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // Check for launch notification
+  final initialPush = await Klaviyo.instance.getInitialNotification();
 
-  runApp(MyApp());
+  runApp(MyApp(initialPush: initialPush));
 }
 
 class MyApp extends StatelessWidget {
+  final KlaviyoPushEvent? initialPush;
+
+  const MyApp({this.initialPush});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: KlaviyoDemo(),
+      home: KlaviyoDemo(initialPush: initialPush),
     );
   }
 }
 
 class KlaviyoDemo extends StatefulWidget {
+  final KlaviyoPushEvent? initialPush;
+
+  const KlaviyoDemo({this.initialPush});
+
   @override
   State<KlaviyoDemo> createState() => _KlaviyoDemoState();
 }
@@ -515,31 +551,32 @@ class _KlaviyoDemoState extends State<KlaviyoDemo> {
   @override
   void initState() {
     super.initState();
-    _setupPushNotifications();
+    _initializeKlaviyo();
+    _setupPushListeners();
+
+    // Handle initial push if app was launched from notification
+    if (widget.initialPush != null) {
+      _handlePushEvent(widget.initialPush!);
+    }
   }
 
-  Future<void> _setupPushNotifications() async {
-    // Request permission
-    NotificationSettings settings = await FirebaseMessaging.instance.requestPermission();
+  void _setupPushListeners() {
+    // Listen for all push events
+    Klaviyo.instance.onPushEvent.listen(_handlePushEvent);
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      // Get and send token
-      String? token = await FirebaseMessaging.instance.getToken();
-      if (token != null) {
-        await Klaviyo.instance.sendTokenToKlaviyo(token);
-        setState(() => _status = 'Push notifications enabled');
-      }
+    // Token refreshes are auto-registered with Klaviyo
+    Klaviyo.instance.onTokenRefresh.listen((tokenEvent) {
+      setState(() => _status = 'Token registered');
+    });
+  }
+
+  void _handlePushEvent(KlaviyoPushEvent event) {
+    setState(() => _status = 'Push ${event.type.name}: ${event.title ?? ""}');
+
+    // Handle deep links
+    if (event.type == KlaviyoPushEventType.opened && event.deepLink != null) {
+      // Navigate to deep link
     }
-
-    // Handle foreground messages
-    FirebaseMessaging.onMessage.listen((message) {
-      Klaviyo.instance.handlePush(message.data);
-    });
-
-    // Handle notification taps
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      Klaviyo.instance.handlePush(message.data);
-    });
   }
 
   Future<void> _identifyUser() async {
@@ -745,8 +782,9 @@ android.enableJetifier=true
 **Push notifications not received**
 
 - Verify `google-services.json` is in `android/app/`
-- Check that `KlaviyoPushService` is registered in `AndroidManifest.xml`
+- Ensure Firebase is initialized before `Klaviyo.instance.initialize()`
 - Confirm FCM server key is added to Klaviyo dashboard
+- Check that `firebase_messaging` is properly configured in your app
 
 ### iOS Issues
 

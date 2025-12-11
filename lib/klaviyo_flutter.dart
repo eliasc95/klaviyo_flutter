@@ -1,8 +1,13 @@
 library klaviyo_flutter;
 
 import 'dart:async';
+import 'dart:developer' as developer;
+import 'dart:io';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:klaviyo_flutter/push_utils.dart';
 import 'package:klaviyo_flutter/src/klaviyo_flutter_platform_interface.dart';
 import 'package:klaviyo_flutter/src/klaviyo_profile.dart';
 
@@ -20,6 +25,24 @@ class Klaviyo {
   /// get the instance of the [Klaviyo].
   static Klaviyo get instance => _instance;
 
+  // Push notification channels
+  static const MethodChannel _pushMethodChannel =
+      MethodChannel('com.rightbite.denisr/klaviyo_push');
+  static const EventChannel _pushEventChannel =
+      EventChannel('com.rightbite.denisr/klaviyo_push_events');
+
+  // Push notification state
+  final StreamController<KlaviyoPushEvent> _pushEventController =
+      StreamController<KlaviyoPushEvent>.broadcast();
+  final StreamController<KlaviyoTokenEvent> _tokenEventController =
+      StreamController<KlaviyoTokenEvent>.broadcast();
+
+  StreamSubscription<dynamic>? _eventSubscription;
+  StreamSubscription<RemoteMessage>? _fcmForegroundSub;
+  StreamSubscription<RemoteMessage>? _fcmOpenedAppSub;
+  StreamSubscription<String>? _fcmTokenSub;
+  KlaviyoPushEvent? _androidInitialNotification;
+
   /// Function to initialize the Klaviyo SDK.
   ///
   /// First, you'll need to get your Klaviyo [apiKey] public API key for your Klaviyo account.
@@ -29,12 +52,243 @@ class Klaviyo {
   ///
   /// Then, initialize Klaviyo in main method.
   Future<void> initialize(String apiKey) async {
+    if (_initialized) return;
+
     if (apiKey.trim().isEmpty) {
       throw ArgumentError.value(apiKey, 'apiKey', 'must not be empty');
     }
+
+    // Initialize the native Klaviyo SDK
     await KlaviyoFlutterPlatform.instance.initialize(apiKey);
+
+    // Set up push notification handling
+    await _initializePushNotifications();
+
     _initialized = true;
   }
+
+  /// Set up push notification handling for both platforms.
+  Future<void> _initializePushNotifications() async {
+    // Set up method call handler for native callbacks
+    _pushMethodChannel.setMethodCallHandler(_handleMethodCall);
+
+    // iOS: Listen to native event channel for push events
+    // Note: iOS native code already calls KlaviyoSDK().handle(notificationResponse:)
+    // which tracks $opened_push events, so we do NOT call _trackPushOpened here
+    // to avoid double-counting.
+    if (!kIsWeb && Platform.isIOS) {
+      _eventSubscription = _pushEventChannel
+          .receiveBroadcastStream()
+          .map((event) => KlaviyoPushEvent.fromMap(
+              Map<String, dynamic>.from(event as Map<dynamic, dynamic>)))
+          .listen(
+        (event) {
+          _pushEventController.add(event);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (kDebugMode) {
+            developer.log(
+              'Push event stream error: $error',
+              name: 'Klaviyo',
+              error: error,
+              stackTrace: stackTrace,
+            );
+          }
+        },
+      );
+    }
+
+    // Android: Bridge Firebase Messaging streams
+    if (!kIsWeb && Platform.isAndroid) {
+      await _setupAndroidFirebaseMessaging();
+    }
+  }
+
+  /// Set up Firebase Messaging listeners on Android.
+  Future<void> _setupAndroidFirebaseMessaging() async {
+    final messaging = FirebaseMessaging.instance;
+
+    // Handle foreground messages
+    _fcmForegroundSub = FirebaseMessaging.onMessage.listen((message) {
+      if (kDebugMode) {
+        developer.log(
+          'Android: Foreground push received: ${message.notification?.title}',
+          name: 'Klaviyo',
+        );
+      }
+      final event = KlaviyoPushEvent.fromRemoteMessage(
+        message,
+        type: KlaviyoPushEventType.received,
+        appState: KlaviyoAppState.foreground,
+      );
+      _pushEventController.add(event);
+    });
+
+    // Handle notification taps (app was in background)
+    // Note: Android native code now calls Klaviyo.handlePush(intent) via ActivityAware,
+    // which tracks $opened_push events, so we do NOT call _trackPushOpened here
+    // to avoid double-counting.
+    _fcmOpenedAppSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      if (kDebugMode) {
+        developer.log(
+          'Android: Push opened app: ${message.notification?.title}',
+          name: 'Klaviyo',
+        );
+      }
+      final event = KlaviyoPushEvent.fromRemoteMessage(
+        message,
+        type: KlaviyoPushEventType.opened,
+        appState: KlaviyoAppState.background,
+      );
+      _pushEventController.add(event);
+    });
+
+    // Handle token refreshes - auto-register with Klaviyo
+    _fcmTokenSub = messaging.onTokenRefresh.listen((token) async {
+      if (kDebugMode) {
+        final truncated =
+            token.length >= 8 ? '${token.substring(0, 8)}...' : token;
+        developer.log('Android: FCM token refreshed: $truncated',
+            name: 'Klaviyo');
+      }
+      await sendTokenToKlaviyo(token);
+      _tokenEventController.add(KlaviyoTokenEvent(
+        token: token,
+        timestamp: DateTime.now(),
+      ));
+    });
+
+    // Get initial token and register with Klaviyo
+    try {
+      final initialToken = await messaging.getToken();
+      if (initialToken != null) {
+        if (kDebugMode) {
+          final truncated = initialToken.length >= 8
+              ? '${initialToken.substring(0, 8)}...'
+              : initialToken;
+          developer.log('Android: Initial FCM token: $truncated',
+              name: 'Klaviyo');
+        }
+        await sendTokenToKlaviyo(initialToken);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        developer.log(
+          'Android: Failed to get initial FCM token: $e',
+          name: 'Klaviyo',
+          error: e,
+        );
+      }
+    }
+
+    // Check for initial message (app launched from terminated state)
+    // Note: Android native code handles tracking via Klaviyo.handlePush(intent)
+    // in onAttachedToActivity, so we only emit to stream here for Flutter listeners.
+    final initialMessage = await messaging.getInitialMessage();
+    if (initialMessage != null) {
+      if (kDebugMode) {
+        developer.log(
+          'Android: App launched from push: ${initialMessage.notification?.title}',
+          name: 'Klaviyo',
+        );
+      }
+      final event = KlaviyoPushEvent.fromRemoteMessage(
+        initialMessage,
+        type: KlaviyoPushEventType.opened,
+        appState: KlaviyoAppState.terminated,
+        didLaunchApp: true,
+      );
+      // Store for getInitialNotification() access
+      _androidInitialNotification = event;
+      // Emit to stream so listeners receive it
+      _pushEventController.add(event);
+    }
+  }
+
+  Future<void> _handleMethodCall(MethodCall call) async {
+    switch (call.method) {
+      case 'onTokenRefresh':
+        final tokenEvent = KlaviyoTokenEvent.fromMap(
+            Map<String, dynamic>.from(call.arguments));
+        if (kDebugMode) {
+          final truncatedToken = tokenEvent.token.length >= 8
+              ? '${tokenEvent.token.substring(0, 8)}...'
+              : tokenEvent.token;
+          developer.log(
+            'Push token auto-registered with Klaviyo: $truncatedToken',
+            name: 'Klaviyo',
+          );
+        }
+        _tokenEventController.add(tokenEvent);
+        break;
+    }
+  }
+
+  // ============================================================
+  // Push Notification API
+  // ============================================================
+
+  /// Stream of all push notification events.
+  Stream<KlaviyoPushEvent> get onPushEvent => _pushEventController.stream;
+
+  /// Stream specifically for push received events.
+  Stream<KlaviyoPushEvent> get onPushReceived =>
+      onPushEvent.where((event) => event.type == KlaviyoPushEventType.received);
+
+  /// Stream specifically for push opened events.
+  Stream<KlaviyoPushEvent> get onPushOpened =>
+      onPushEvent.where((event) => event.type == KlaviyoPushEventType.opened);
+
+  /// Stream specifically for push dismissed events.
+  Stream<KlaviyoPushEvent> get onPushDismissed => onPushEvent
+      .where((event) => event.type == KlaviyoPushEventType.dismissed);
+
+  /// Stream specifically for action button taps.
+  Stream<KlaviyoPushEvent> get onPushActionTapped => onPushEvent
+      .where((event) => event.type == KlaviyoPushEventType.actionTapped);
+
+  /// Stream for token refresh events.
+  Stream<KlaviyoTokenEvent> get onTokenRefresh => _tokenEventController.stream;
+
+  /// Get the initial notification that launched the app (if any).
+  ///
+  /// On both iOS and Android, this returns the notification that launched the
+  /// app from a terminated state. Call this after [initialize] to handle
+  /// the cold-start case.
+  Future<KlaviyoPushEvent?> getInitialNotification() async {
+    if (!kIsWeb && Platform.isIOS) {
+      final result = await _pushMethodChannel
+          .invokeMethod<dynamic>('getInitialNotification');
+      if (result == null) return null;
+      return KlaviyoPushEvent.fromMap(Map<String, dynamic>.from(result));
+    }
+    if (!kIsWeb && Platform.isAndroid) {
+      return _androidInitialNotification;
+    }
+    return null;
+  }
+
+  /// Clear the initial notification after handling.
+  Future<void> clearInitialNotification() async {
+    if (!kIsWeb && Platform.isIOS) {
+      await _pushMethodChannel.invokeMethod('clearInitialNotification');
+    }
+    if (!kIsWeb && Platform.isAndroid) {
+      _androidInitialNotification = null;
+    }
+  }
+
+  /// Get the current push token.
+  Future<String?> getPushToken() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      return FirebaseMessaging.instance.getToken();
+    }
+    return _pushMethodChannel.invokeMethod<String>('getToken');
+  }
+
+  // ============================================================
+  // Profile & Analytics API
+  // ============================================================
 
   /// To log events in Klaviyo that record what users do in your app and when they do it.
   /// For example, you can record when user opened a specific screen in your app.
@@ -65,15 +319,21 @@ class Klaviyo {
     return KlaviyoFlutterPlatform.instance.updateProfile(profileModel);
   }
 
-  /// Check if the push [message] is for Klaviyo and handle that push.
-  Future<bool> handlePush(Map<String, dynamic> message) async {
+  /// Manually track a push notification open with Klaviyo.
+  ///
+  /// This creates a `$opened_push` event in Klaviyo. Usually this is called
+  /// automatically when a push is opened, but you can call it manually if
+  /// you have custom push handling.
+  ///
+  /// Returns `true` if the push was from Klaviyo and was tracked successfully.
+  Future<bool> handlePush(Map<String, dynamic> message) {
     return KlaviyoFlutterPlatform.instance.handlePush(message);
   }
 
-  /// Check if the Klaviyo already initialized
+  /// Check if Klaviyo is already initialized.
   bool get isInitialized => _initialized;
 
-  /// Check if the push [message] is for Klaviyo
+  /// Check if the push [message] is from Klaviyo.
   bool isKlaviyoPush(Map<String, dynamic> message) => message.containsKey('_k');
 
   /// {@macro klaviyo_flutter_platform.setExternalId}
@@ -84,13 +344,13 @@ class Klaviyo {
   Future<String?> getExternalId() =>
       KlaviyoFlutterPlatform.instance.getExternalId();
 
-  /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile
+  /// Clear all stored profile identifiers and start a new tracked profile.
   ///
-  /// NOTE: if a push token was registered to the current profile, you will need to
-  /// call `setPushToken` again to associate this device to a new profile
+  /// NOTE: If a push token was registered to the current profile, you will
+  /// need to call [sendTokenToKlaviyo] again to associate this device with
+  /// a new profile.
   ///
-  /// This should be called whenever an active user in your app is removed
-  /// (e.g. after a logout)
+  /// This should be called whenever an active user is removed (e.g. after logout).
   Future<void> resetProfile() => KlaviyoFlutterPlatform.instance.resetProfile();
 
   /// Assigns an email address to the currently tracked Klaviyo profile
@@ -190,6 +450,16 @@ class Klaviyo {
   /// {@macro klaviyo_flutter_platform.setBadgeCount}
   Future<void> setBadgeCount(int count) =>
       KlaviyoFlutterPlatform.instance.setBadgeCount(count);
+
+  /// Dispose resources. Call this when the app is shutting down.
+  void dispose() {
+    _eventSubscription?.cancel();
+    _fcmForegroundSub?.cancel();
+    _fcmOpenedAppSub?.cancel();
+    _fcmTokenSub?.cancel();
+    _pushEventController.close();
+    _tokenEventController.close();
+  }
 
   @visibleForTesting
   void debugReset() {

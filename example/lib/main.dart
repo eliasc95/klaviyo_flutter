@@ -1,7 +1,16 @@
+import 'dart:async';
+
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:klaviyo_flutter/klaviyo_flutter.dart';
+import 'package:klaviyo_flutter/push_utils.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase first (required for Android push notifications)
+  await Firebase.initializeApp();
+
   runApp(const SampleApp());
 }
 
@@ -31,10 +40,17 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
   final _phoneController = TextEditingController(text: '+15555550123');
   final _tokenController = TextEditingController(text: 'demo-token');
   final List<String> _log = <String>[];
+  StreamSubscription<KlaviyoPushEvent>? _pushSubscription;
+  StreamSubscription<KlaviyoTokenEvent>? _tokenSubscription;
 
   bool _isRunning = false;
 
   bool get _isInitialized => Klaviyo.instance.isInitialized;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   void dispose() {
@@ -43,12 +59,24 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
     _externalIdController.dispose();
     _phoneController.dispose();
     _tokenController.dispose();
+    _pushSubscription?.cancel();
+    _tokenSubscription?.cancel();
     super.dispose();
   }
 
   Future<void> _initializeSdk() async {
     await _run('Initialize SDK', () async {
       await Klaviyo.instance.initialize(_apiKeyController.text.trim());
+      _setupPushListeners();
+      // Check for initial notification that launched the app
+      final initialPush = await Klaviyo.instance.getInitialNotification();
+      if (initialPush != null) {
+        _appendLog(
+          'Initial push (${initialPush.type.name}): ${initialPush.title ?? ''} '
+          'didLaunchApp=${initialPush.didLaunchApp}',
+        );
+        await Klaviyo.instance.clearInitialNotification();
+      }
     });
   }
 
@@ -104,13 +132,15 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
   }
 
   Future<void> _simulatePushOpen() async {
-    await _run('Handle push payload', () async {
-      final opened = await Klaviyo.instance.handlePush({
-        '_k': 'mock-klaviyo-marker',
-        'body': 'Hello from Klaviyo',
-      });
-      _appendLog('Push handled: $opened');
-    });
+    // await _run('Handle push payload', () async {
+    //   final opened = await Klaviyo.instance.handlePush({
+    //     '_k': 'mock-klaviyo-marker',
+    //     'body': 'Hello from Klaviyo',
+    //   });
+    //   _appendLog('Push handled: $opened');
+    // });
+    _appendLog(
+        'Push handling now uses Klaviyo.instance streams (onPushEvent, onPushOpened, etc.)');
   }
 
   Future<void> _setBadgeCount() async {
@@ -131,6 +161,18 @@ class _ExampleHomePageState extends State<ExampleHomePage> {
       final email = await Klaviyo.instance.getEmail();
       final phone = await Klaviyo.instance.getPhoneNumber();
       _appendLog('Current profile => id:$externalId email:$email phone:$phone');
+    });
+  }
+
+  void _setupPushListeners() {
+    _pushSubscription = Klaviyo.instance.onPushEvent.listen((event) {
+      _appendLog(
+        'Push ${event.type.name} [${event.appState}] title=${event.title ?? '-'} '
+        'launch=${event.didLaunchApp}',
+      );
+    });
+    _tokenSubscription = Klaviyo.instance.onTokenRefresh.listen((tokenEvent) {
+      _appendLog('Token refreshed: ${tokenEvent.token}');
     });
   }
 

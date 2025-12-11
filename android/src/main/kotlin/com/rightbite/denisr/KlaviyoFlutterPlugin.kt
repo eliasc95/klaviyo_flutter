@@ -1,6 +1,8 @@
 package com.rightbite.denisr
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import androidx.annotation.VisibleForTesting
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
@@ -11,9 +13,12 @@ import com.klaviyo.analytics.model.ProfileKey
 import io.flutter.Log
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.FlutterPlugin.FlutterPluginBinding
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
+import io.flutter.plugin.common.PluginRegistry.NewIntentListener
 import java.io.Serializable
 
 private const val METHOD_UPDATE_PROFILE = "updateProfile"
@@ -76,9 +81,13 @@ private const val TAG = "KlaviyoFlutterPlugin"
 
 class KlaviyoFlutterPlugin :
     MethodCallHandler,
-    FlutterPlugin {
+    FlutterPlugin,
+    ActivityAware,
+    NewIntentListener {
     private var applicationContext: Context? = null
     private lateinit var channel: MethodChannel
+    private var activity: Activity? = null
+    private var activityBinding: ActivityPluginBinding? = null
 
     override fun onAttachedToEngine(binding: FlutterPluginBinding) {
         applicationContext = binding.applicationContext
@@ -89,6 +98,55 @@ class KlaviyoFlutterPlugin :
     override fun onDetachedFromEngine(binding: FlutterPluginBinding) {
         applicationContext = null
         channel.setMethodCallHandler(null)
+    }
+
+    // ActivityAware implementation
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        activity = binding.activity
+        activityBinding = binding
+        binding.addOnNewIntentListener(this)
+
+        // Handle the initial intent that launched the activity (cold start from push)
+        activity?.intent?.let { intent ->
+            handlePushIntent(intent)
+        }
+    }
+
+    override fun onDetachedFromActivityForConfigChanges() {
+        activityBinding?.removeOnNewIntentListener(this)
+        activityBinding = null
+        activity = null
+    }
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        activity = binding.activity
+        activityBinding = binding
+        binding.addOnNewIntentListener(this)
+    }
+
+    override fun onDetachedFromActivity() {
+        activityBinding?.removeOnNewIntentListener(this)
+        activityBinding = null
+        activity = null
+    }
+
+    // NewIntentListener implementation - called when app receives a new intent while running
+    override fun onNewIntent(intent: Intent): Boolean {
+        handlePushIntent(intent)
+        return false // Don't consume the intent, let other handlers process it too
+    }
+
+    /**
+     * Pass the intent to Klaviyo SDK to track push opens.
+     * This is the recommended way to track push opens according to Klaviyo Android SDK docs.
+     */
+    private fun handlePushIntent(intent: Intent) {
+        try {
+            Klaviyo.handlePush(intent)
+            logDebug("Passed intent to Klaviyo.handlePush()")
+        } catch (e: Exception) {
+            logError("Error calling Klaviyo.handlePush(intent)", e)
+        }
     }
 
     override fun onMethodCall(
@@ -190,10 +248,11 @@ class KlaviyoFlutterPlugin :
                         Klaviyo.getPushToken()?.let { event[EventKey.CUSTOM("push_token")] = it }
 
                         Klaviyo.createEvent(event)
+                        logDebug("Tracked \$opened_push event")
                         result.success(true)
                     } catch (e: Exception) {
-                        logError("Failed handle push metaData:$metaData", e)
-                        result.error("Failed handle push metaData", e.message, null)
+                        logError("Failed to handle push metaData: $metaData", e)
+                        result.error("HANDLE_PUSH_ERROR", e.message, null)
                     }
                 } else {
                     return result.success(false)

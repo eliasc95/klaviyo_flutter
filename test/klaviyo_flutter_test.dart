@@ -4,6 +4,8 @@ import 'package:klaviyo_flutter/klaviyo_flutter.dart';
 import 'package:klaviyo_flutter/src/klaviyo_flutter_platform_interface.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   final realPlatform = KlaviyoFlutterPlatform.instance;
   late _RecordingPlatform platform;
 
