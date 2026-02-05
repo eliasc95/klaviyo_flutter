@@ -143,22 +143,23 @@ class Klaviyo {
       _pushEventController.add(event);
     });
 
-    // Handle token refreshes - auto-register with Klaviyo
-    _fcmTokenSub = messaging.onTokenRefresh.listen((token) async {
+    // Handle token refreshes - emit to stream for manual registration
+    // Developers must call sendTokenToKlaviyo() manually to register with Klaviyo
+    _fcmTokenSub = messaging.onTokenRefresh.listen((token) {
       if (kDebugMode) {
         final truncated =
             token.length >= 8 ? '${token.substring(0, 8)}...' : token;
         developer.log('Android: FCM token refreshed: $truncated',
             name: 'Klaviyo');
       }
-      await sendTokenToKlaviyo(token);
       _tokenEventController.add(KlaviyoTokenEvent(
         token: token,
         timestamp: DateTime.now(),
       ));
     });
 
-    // Get initial token and register with Klaviyo
+    // Get initial token and emit to stream for manual registration
+    // Developers must call sendTokenToKlaviyo() manually to register with Klaviyo
     try {
       final initialToken = await messaging.getToken();
       if (initialToken != null) {
@@ -169,7 +170,10 @@ class Klaviyo {
           developer.log('Android: Initial FCM token: $truncated',
               name: 'Klaviyo');
         }
-        await sendTokenToKlaviyo(initialToken);
+        _tokenEventController.add(KlaviyoTokenEvent(
+          token: initialToken,
+          timestamp: DateTime.now(),
+        ));
       }
     } catch (e) {
       if (kDebugMode) {

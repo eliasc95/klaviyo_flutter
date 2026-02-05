@@ -123,12 +123,8 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin,
         let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
         cachedPushToken = token
 
-        // Auto-register token with Klaviyo
-        klaviyo.set(pushToken: deviceToken)
-        #if DEBUG
-        print("[KlaviyoFlutter] Auto-registered push token with Klaviyo")
-        #endif
-
+        // Emit token event to Dart side for manual registration
+        // Developers must call sendTokenToKlaviyo() manually to register with Klaviyo
         let tokenEvent: [String: Any] = [
             "token": token,
             "timestamp": Int(Date().timeIntervalSince1970 * 1000),
